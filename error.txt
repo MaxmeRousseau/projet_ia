@@ -1,0 +1,52 @@
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+Cell In[12], line 29
+     26     return tokenizer(examples['text'], truncation=True, padding='max_length', max_length=128)
+     28 encoded_dataset = dataset.map(preprocess_function, batched=True)
+---> 29 encoded_dataset = encoded_dataset.remove_columns(['text', '__index_level_0__'])
+     30 encoded_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'humor'])
+     32 training_args = TrainingArguments(
+     33     output_dir="./results",
+     34     evaluation_strategy="epoch",
+   (...)     40     save_total_limit=1,
+     41 )
+
+File /opt/conda/lib/python3.13/site-packages/datasets/dataset_dict.py:380, in DatasetDict.remove_columns(self, column_names)
+    341 """
+    342 Remove one or several column(s) from each split in the dataset
+    343 and the features associated to the column(s).
+   (...)    377 ```
+    378 """
+    379 self._check_values_type()
+--> 380 return DatasetDict({k: dataset.remove_columns(column_names=column_names) for k, dataset in self.items()})
+
+File /opt/conda/lib/python3.13/site-packages/datasets/arrow_dataset.py:562, in transmit_format.<locals>.wrapper(*args, **kwargs)
+    555 self_format = {
+    556     "type": self._format_type,
+    557     "format_kwargs": self._format_kwargs,
+    558     "columns": self._format_columns,
+    559     "output_all_columns": self._output_all_columns,
+    560 }
+    561 # apply actual function
+--> 562 out: Union["Dataset", "DatasetDict"] = func(self, *args, **kwargs)
+    563 datasets: list["Dataset"] = list(out.values()) if isinstance(out, dict) else [out]
+    564 # re-apply format to the output
+
+File /opt/conda/lib/python3.13/site-packages/datasets/fingerprint.py:442, in fingerprint_transform.<locals>._fingerprint.<locals>.wrapper(*args, **kwargs)
+    438             validate_fingerprint(kwargs[fingerprint_name])
+    440 # Call actual function
+--> 442 out = func(dataset, *args, **kwargs)
+    444 # Update fingerprint of in-place transforms + update in-place history of transforms
+    446 if inplace:  # update after calling func so that the fingerprint doesn't change if the function fails
+
+File /opt/conda/lib/python3.13/site-packages/datasets/arrow_dataset.py:2235, in Dataset.remove_columns(self, column_names, new_fingerprint)
+   2233 missing_columns = set(column_names) - set(self._data.column_names)
+   2234 if missing_columns:
+-> 2235     raise ValueError(
+   2236         f"Column name {list(missing_columns)} not in the dataset. "
+   2237         f"Current columns in the dataset: {dataset._data.column_names}"
+   2238     )
+   2240 for column_name in column_names:
+   2241     del dataset._info.features[column_name]
+
+ValueError: Column name ['__index_level_0__'] not in the dataset. Current columns in the dataset: ['text', 'humor', 'label', 'text_clean', 'input_ids', 'attention_mask']
