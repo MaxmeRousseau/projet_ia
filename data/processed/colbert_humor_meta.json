@@ -1,0 +1,6 @@
+{
+  "n_rows": 200000,
+  "parquet": "data/processed/colbert_humor.parquet",
+  "pickle": "data/processed/colbert_humor.pkl",
+  "csv": "data/processed/colbert_humor.csv"
+}
