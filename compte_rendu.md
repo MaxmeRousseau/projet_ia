@@ -42,34 +42,35 @@ Longueur des textes par classe
 
 Le boxplot compare la longueur des textes entre classes. Si une classe contient systématiquement des textes plus longs ou plus courts, cela peut introduire un biais exploitable par le modèle (signal non désiré). Cette visualisation sert aussi à détecter valeurs aberrantes qui méritent un nettoyage supplémentaire.
 
-Complément visuel — prétraitement (schéma explicatif)
+## Entrainement
 
-Le prétraitement appliqué (cf. `traitement.py`) est simple et transparent :
-- mise en minuscules,
-- suppression d'URLs et balises HTML,
-- normalisation des caractères non‑textuels (on conserve apostrophes et ponctuation utile),
-- écrasement des espaces multiples,
-- création d'une colonne `label` 0/1 et suppression des lignes vides.
+Cette section décrit la procédure d'entraînement utilisée dans le notebook `test.ipynb`. Le notebook implémente un fine-tuning simple d'un modèle de type Transformer (ex. DistilBERT) pour la classification binaire (humour vs non-humour). Ci‑dessous on retrouve les étapes principales, les choix d'hyperparamètres, les artefacts produits et les instructions pour reproduire l'entraînement.
 
-Un exemple typique (avant → après) illustre l'effet du nettoyage :
+### 1) Données et préparation
+- Fichier principal : `data/processed/colbert_humor.csv` (produit par `traitement.py`). Colonnes attendues :
+	- `text` : texte brut à classer.
+	- `humor` / `label` : étiquette d'origine et/ou version normalisée 0/1.
+- Chargement dans un objet `datasets.Dataset` puis split train/test (test_size=0.2, seed=42).
+- Tokenisation : `AutoTokenizer` (ex. `distilbert-base-uncased`) sur la colonne `text`.
+	- Troncature et padding (`truncation=True`, `padding='max_length'`) avec `max_length=128` (valeur choisi d'après la distribution des longueurs).
+- S'assurer que la colonne d'étiquette s'appelle `labels` et possède des entiers (0/1) pour la compatibilité avec `Trainer`.
 
-- Avant : "Martha stewart tweets hideous food photo, twitter responds accordingly"
-- Après : "martha stewart tweets hideous food photo twitter responds accordingly"
+### 2) Modèle et configuration d'entraînement
+- Backbones testés : un modèle de la famille BERT (ex. `distilbert-base-uncased`) chargé via `AutoModelForSequenceClassification` avec `num_labels=2`.
+- Entraînement via `transformers.Trainer` avec les arguments suivants (extrait du notebook) :
+	- `output_dir`: `./results`
+	- `learning_rate`: 2e-5
+	- `per_device_train_batch_size`: 16
+	- `per_device_eval_batch_size`: 16
+	- `num_train_epochs`: 3
+	- `weight_decay`: 0.01
+	- `save_total_limit`: 1
+	- `fp16`: True (si la machine/driver le supporte)
 
-Ces opérations réduisent le bruit et rendent les entrées plus homogènes pour la vectorisation (TF‑IDF) et la tokenisation pour Transformers.
+### 3) Métriques
+- La métrique calculée dans le notebook est l'accuracy. La fonction `compute_metrics` :
+	- transforme logits en prédictions (argmax pour multi‑classe, seuil 0.5 pour binaire si nécessaire) et retourne `{'accuracy': float(acc)}`.
+- Recommandation : ajouter F1-score (macro/weighted) et matrice de confusion pour une meilleure évaluation sur un jeu déséquilibré.
 
-Observations qualitatives
-- Colonnes : le jeu contient à la fois le texte brut et une version nettoyée (`text_clean`) — pratique pour expérimenter avec tokenizers et vecteurs TF-IDF sans retoucher le texte original.
-- Longueurs : la distribution des longueurs montre une majorité d'instances courtes (titres ou courtes phrases). Il convient d'utiliser un max_length modéré (par ex. 128 tokens) pour un modèle Transformer léger.
-- Équilibre des classes : les graphiques montrent une distribution non parfaitement équilibrée. Ceci nécessite d'envisager des métriques robustes (F1, recall/precision) et possiblement des stratégies de rééchantillonnage ou de class weights si on constate une forte imbalance lors de l'entraînement.
-- Cas difficiles / bruit : le jeu contient des titres d'actualité, des jeux de mots, des blagues parfois offensantes ou référentielles. Il est important de garder une vigilance sur les biais (stéréotypes raciaux, religieux, etc.) — ces exemples existent dans le corpus et doivent être documentés si le modèle sera utilisé en production.
-
-Exemples représentatifs
-- Le dataset mêle :
-	- courtes blagues format "one-liner" (ex. "What do you call a turtle without its shell? dead.");
-	- titres d'actualité non humoristiques ;
-	- jeux de mots basés sur homophonie et références culturelles ;
-	- quelques instances potentiellement offensantes ou sensibles qui nécessitent un traitement/filtrage selon l'usage final.
-
-Top tokens (approche simple)
-- Une tokenisation naive (split par mots) mettra en évidence des tokens fréquents non-informatifs (stopwords) ainsi que des mots clé du registre humoristique ("joke", "what", interjections, constructions de blague). Il est recommandé d'observer les top tokens par classe pour guider le nettoyage (stopword list) ou la construction d'ngrams utiles.
+### 4) Remarque
+- Après l'entraînement, j'ai testé le modèle (entraîné sur des données en anglais) sur des phrases et blagues en français : il a correctement distingué humour / non-humour. En conséquence, j'ai décidé d'entraîner et d'évaluer un modèle quasi identique mais multilingue afin de comparer les performances entre la version monolingue et la version multilingue.

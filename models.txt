@@ -1,0 +1,2 @@
+distilbert-base-uncased : https://huggingface.co/distilbert/distilbert-base-uncased
+distilbert/distilbert-base-multilingual-cased : https://huggingface.co/distilbert/distilbert-base-multilingual-cased
