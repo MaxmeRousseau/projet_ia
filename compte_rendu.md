@@ -74,3 +74,43 @@ Cette section décrit la procédure d'entraînement utilisée dans le notebook `
 
 ### 4) Remarque
 - Après l'entraînement, j'ai testé le modèle (entraîné sur des données en anglais) sur des phrases et blagues en français : il a correctement distingué humour / non-humour. En conséquence, j'ai décidé d'entraîner et d'évaluer un modèle quasi identique mais multilingue afin de comparer les performances entre la version monolingue et la version multilingue.
+
+## Comparaison des models
+
+j'ai testé les deux modèles sur quelque texte que j'ai écris, pour voir si ils me sortait la même réponse, j'aurai du poussé en utilisant l'autre jeu de donné que j'avais récupéré ou il n'y a aucun label humor pour essayer de le classifier avec les deux modèle et voir une comparaison
+
+
+--- Running pipeline for humor_detection_model01 ---
+Text: j'ai faim
+J'ai comparé qualitativement deux modèles locaux en exécutant des prédictions sur un petit jeu d'exemples (les tests et la sortie complète sont disponibles dans le notebook `comparaison_des_models.ipynb`). Voici un résumé clair et concis des observations, de leur interprétation et des recommandations.
+
+Observations principales
+- `humor_detection_model01` : sur des phrases françaises et anglaises courtes, les prédictions sont globalement cohérentes (Humor / Not Humor). En revanche, les phrases en coréen ont majoritairement été classées comme non‑humoristiques.
+- `humor_model_multilingual` : performances similaires au modèle 1 pour le français/l'anglais, mais meilleure détection de l'humour sur les exemples en coréen et d'autres langues (plus de prédictions "Humor").
+
+Interprétation
+- Le comportement observé concorde avec l'origine des modèles : le modèle multilingue ayant été entraîné sur un corpus couvrant de nombreuses langues est plus apte à reconnaître l'humour hors anglais. Le modèle basé sur DistilBERT (en pratique entraîné principalement sur de l'anglais) montre des limites sur des langues qu'il n'a pas rencontrées pendant l'entraînement.
+
+Limitations de cette comparaison
+- L'évaluation présentée est qualitative et basée sur quelques exemples manuels. Elle ne permet pas de conclure sur les performances réelles en production.
+- Les paramètres de tokenisation/prétraitement et les seuils de décision peuvent influencer fortement les résultats — il faut s'assurer que les deux pipelines sont configurés de façon comparable (mêmes `max_length`, padding, etc.).
+
+Recommandations et prochaines étapes
+1. Réaliser une évaluation quantitative sur un jeu étiqueté multilingue (ex. un sous‑ensemble labellisé de `data/processed/colbert_humor.csv` si des labels multilingues sont disponibles) en calculant accuracy, F1 (macro/weighted) et matrice de confusion.
+2. Standardiser le prétraitement et la tokenisation pour chaque modèle avant comparaison (mêmes paramètres de padding/truncation).
+3. Documenter et inclure les sorties complètes du notebook dans le rapport (captures ou tableau récapitulatif) afin de garder une trace reproductible des tests.
+
+Extrait synthétique de la sortie observée (voir le notebook pour la sortie complète) :
+- `humor_detection_model01` a classé les phrases coréennes principalement en `Not Humor`.
+- `humor_model_multilingual` a classé ces mêmes phrases majoritairement en `Humor`.
+
+En résumé : les tests exploratoires montrent un avantage du modèle multilingue sur des exemples non‑anglophones, mais une évaluation quantitative sur un jeu de test approprié est nécessaire pour tirer des conclusions robustes.
+
+## Génération
+- Choix du modèle : j'ai testé un grand modèle causal pour la génération. Un modèle non affiné produisait des sorties qui n'avaient pas le format d'une blague (ou n'avaient pas de sens). Pour améliorer la qualité, j'ai prévu un fine‑tuning sur notre jeu de blagues courtes.
+- Processus : le notebook contient (1) l'installation des dépendances, (2) un exemple de fine‑tuning (préparation des données, tokenisation, création d'un Trainer), (3) une fonction de génération `generate_jokes(prompt, ...)` qui produit plusieurs candidats, et (4) un filtrage/score des candidats à l'aide de classifieurs locaux.
+- Filtrage : les candidats générés sont évalués par des classifieurs binaires (ex. `humor_detection_model01` et `humor_model_multilingual`). Le notebook inclut des mécanismes pour charger ces classifieurs même si seuls les poids/config existent (fallback tokenizers) et pour corriger des `input_ids` hors‑vocabulaire avant scoring.
+
+Etat actuel et limites
+- J'ai préparé et lancé le fine‑tuning sur le jeu de blagues courtes, mais je n'ai pas encore validé systématiquement les sorties post‑entraînement dans ce rapport. L'étape suivante consiste à générer un lot de candidats avec le modèle affiné puis à appliquer nos classifieurs pour garder les meilleurs exemples.
+
